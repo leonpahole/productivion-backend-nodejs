@@ -1,0 +1,52 @@
+{
+  "name": "todo-app-nodejs-graphql",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Leon Pahole",
+  "scripts": {
+    "dev:build": "tsc -w",
+    "dev:watch": "nodemon dist/index.js | pino-pretty",
+    "dev": "concurrently -k \"yarn dev:build\" \"yarn dev:watch\"",
+    "start": "node dist/index.js",
+    "docker:dev": "docker-compose up -d",
+    "build": "tsc",
+    "gen:env": "npx gen-env-types .env -o src/types/env.d.ts -e .",
+    "typeorm": "node --require ts-node/register ./node_modules/typeorm/cli.js --config src/config/ormconfig.ts",
+    "migrate:create": "yarn typeorm migration:create -n",
+    "migrate:gen": "yarn typeorm migration:generate -n",
+    "migrate:up": "yarn typeorm migration:run",
+    "migrate:down": "yarn typeorm migration:revert"
+  },
+  "devDependencies": {
+    "@types/connect-redis": "^0.0.14",
+    "@types/express-session": "^1.17.0",
+    "@types/ioredis": "^4.17.4",
+    "@types/node": "^14.6.4",
+    "@types/pino": "^6.3.0",
+    "concurrently": "^5.3.0",
+    "gen-env-types": "^1.0.3",
+    "nodemon": "^2.0.4",
+    "pino-pretty": "^4.2.1",
+    "ts-node": "^9.0.0",
+    "typescript": "^4.0.2"
+  },
+  "dependencies": {
+    "apollo-server-express": "^2.17.0",
+    "argon2": "^0.27.0",
+    "class-validator": "^0.12.2",
+    "connect-redis": "^5.0.0",
+    "cors": "^2.8.5",
+    "dataloader": "^2.0.0",
+    "dotenv-safe": "^8.2.0",
+    "express": "^4.17.1",
+    "express-session": "^1.17.1",
+    "graphql": "^15.3.0",
+    "ioredis": "^4.17.3",
+    "pg": "^8.3.3",
+    "pino": "^6.5.1",
+    "reflect-metadata": "^0.1.13",
+    "type-graphql": "^1.0.0",
+    "typeorm": "^0.2.25"
+  }
+}

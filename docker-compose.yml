@@ -1,0 +1,41 @@
+version: "3.6"
+
+services:
+  db:
+    container_name: todo_app_db
+    image: postgres:12.4
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres:/data/postgres
+
+  db_admin:
+    container_name: todo_app_db_admin
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: e@e.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin:/root/.pgadmin
+    ports:
+      - "8080:80"
+
+  redis:
+    container_name: todo_app_session_redis
+    image: "docker.io/bitnami/redis:6.0-debian-10"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+    ports:
+      - "6379:6379"
+    volumes:
+      - "redis_data:/bitnami/redis/data"
+
+volumes:
+  postgres:
+  pgadmin:
+  redis_data:
