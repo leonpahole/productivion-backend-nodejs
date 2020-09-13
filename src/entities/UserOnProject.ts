@@ -33,6 +33,7 @@ export class UserOnProject extends BaseEntity {
   })
   project: Project;
 
+  @Field(() => Int, { nullable: true })
   @Column({ type: "int", nullable: true })
   presetId?: number;
 
@@ -89,6 +90,7 @@ export const createUserOnProject = (
   userOnProject.canUpdateTask = capabilities.canUpdateTask;
   userOnProject.canDeleteTask = capabilities.canDeleteTask;
   userOnProject.canCompleteTask = capabilities.canCompleteTask;
+  userOnProject.canManageProjectUsers = capabilities.canManageProjectUsers;
 
   userOnProject.presetId = presetId;
 

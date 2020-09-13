@@ -22,13 +22,16 @@ import {
   UserProjectCapabilities,
 } from "../types/UserProjectCapabilities";
 import { AUTH_ERROR } from "../constants";
+import { Length } from "class-validator";
 
 @InputType()
 class CreateProjectInput {
   @Field()
+  @Length(4, 40)
   title: string;
 
   @Field({ nullable: true })
+  @Length(4, 250)
   description?: string;
 }
 
@@ -90,7 +93,8 @@ export class ProjectResolver {
         FROM project p
         LEFT JOIN user_on_project
         ON user_on_project."projectId" = p.id
-        WHERE user_on_project."userId" = $1;
+        WHERE user_on_project."userId" = $1
+        ORDER BY p."createdAt" DESC;
       `,
       [req.session.userId]
     );
@@ -98,24 +102,24 @@ export class ProjectResolver {
     return projects;
   }
 
-  @Query(() => [Project])
+  @Query(() => Project, { nullable: true })
   @UseMiddleware(isAuth)
   async project(
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: AppContext
   ): Promise<Project | undefined> {
-    verifyPermissionOnProject(id, req.session.userId, "view");
+    await verifyPermissionOnProject(id, req.session.userId, "view");
     return Project.findOne({ id });
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => Project, { nullable: true })
   @UseMiddleware(isAuth)
   async updateProject(
     @Ctx() { req }: AppContext,
     @Arg("id", () => Int) id: number,
     @Arg("input") { title, description }: CreateProjectInput
-  ): Promise<boolean> {
-    verifyPermissionOnProject(id, req.session.userId, "canUpdateProject");
+  ): Promise<Project | undefined> {
+    await verifyPermissionOnProject(id, req.session.userId, "canUpdateProject");
     await Project.update(
       { id },
       {
@@ -124,7 +128,7 @@ export class ProjectResolver {
       }
     );
 
-    return true;
+    return Project.findOne(id);
   }
 
   @Mutation(() => Boolean)
@@ -133,7 +137,7 @@ export class ProjectResolver {
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: AppContext
   ): Promise<boolean> {
-    verifyPermissionOnProject(id, req.session.userId, "canDeleteProject");
+    await verifyPermissionOnProject(id, req.session.userId, "canDeleteProject");
     await Project.delete({
       id,
     });
@@ -152,7 +156,7 @@ export const verifyPermissionOnProject = async (
     q = { where: { ...q.where, [capability]: true } };
   }
 
-  const result = await UserOnProject.find(q);
+  const result = await UserOnProject.findOne(q);
 
   if (result == null) {
     throw new Error(AUTH_ERROR);

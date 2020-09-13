@@ -24,6 +24,7 @@ export const configureGraphQLServer = async (
         TaskResolver,
         UserManagementResolver,
       ],
+      dateScalarMode: "timestamp",
       validate: true,
       directives: [],
     }),

@@ -27,9 +27,13 @@ export class Task extends BaseEntity {
   @Column({ nullable: true })
   description?: string;
 
-  @Field({ defaultValue: false })
-  @Column()
+  @Field()
+  @Column({ default: false })
   completed: boolean;
+
+  @Field(() => String, { nullable: true })
+  @Column({ nullable: true, type: "date" })
+  dueDate?: Date;
 
   @Field()
   @Column()

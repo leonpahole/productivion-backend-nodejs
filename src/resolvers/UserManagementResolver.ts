@@ -8,6 +8,8 @@ import {
   UseMiddleware,
   FieldResolver,
   Root,
+  InputType,
+  Field,
 } from "type-graphql";
 import { User } from "../entities/User";
 import { createUserOnProject, UserOnProject } from "../entities/UserOnProject";
@@ -20,6 +22,22 @@ import {
 } from "../types/UserProjectCapabilities";
 import { verifyPermissionOnProject } from "./ProjectResolver";
 import { getConnection } from "typeorm";
+import { IsEmail, Min } from "class-validator";
+import { createGraphQLInputError } from "../utils/createGraphQLInputError";
+
+@InputType()
+class AddUserToProjectInput {
+  @Field()
+  @IsEmail()
+  email: string;
+
+  @Field({ nullable: true })
+  capabilities: UserProjectCapabilities;
+
+  @Field({ nullable: true })
+  @Min(1)
+  rolePresetId: number;
+}
 
 @Resolver(UserOnProject)
 export class UserManagementResolver {
@@ -31,18 +49,29 @@ export class UserManagementResolver {
     return userLoader.load(userOnProject.userId);
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => UserOnProject, { nullable: true })
   @UseMiddleware(isAuth)
   async addUserToProject(
     @Ctx() { req }: AppContext,
-    @Arg("id", () => Int) id: number,
-    @Arg("userId", () => Int) userId: number,
-    @Arg("capabilities", () => UserProjectCapabilities, { nullable: true })
-    capabilities?: UserProjectCapabilities,
-    @Arg("rolePresetId", () => Int, { nullable: true }) rolePresetId?: number
-  ): Promise<boolean> {
+    @Arg("id", () => Int!) id: number,
+    @Arg("input", () => AddUserToProjectInput)
+    { email, capabilities, rolePresetId }: AddUserToProjectInput
+  ): Promise<UserOnProject | undefined> {
+    await verifyPermissionOnProject(
+      id,
+      req.session.userId,
+      "canManageProjectUsers"
+    );
+
     if (!rolePresetId && !capabilities) {
-      return false;
+      throw createGraphQLInputError([
+        {
+          property: "unknown",
+          constraints: {
+            IsUnique: "Insufficient data",
+          },
+        },
+      ]);
     }
 
     let realCapabilities: UserProjectCapabilities | null = null;
@@ -62,16 +91,35 @@ export class UserManagementResolver {
     }
 
     if (!realCapabilities) {
-      return false;
+      throw createGraphQLInputError([
+        {
+          property: "unknown",
+          constraints: {
+            IsUnique: "Insufficient data",
+          },
+        },
+      ]);
     }
 
-    verifyPermissionOnProject(id, req.session.userId, "canManageProjectUsers");
+    const userToAdd = await User.findOne({ where: { email } });
+    if (!userToAdd) {
+      throw createGraphQLInputError([
+        {
+          property: "email",
+          constraints: {
+            IsUnique: "Unknown email",
+          },
+        },
+      ]);
+    }
+
+    let participationOnProject: UserOnProject | undefined;
 
     await getConnection().transaction(async (transactionalEntityManager) => {
-      await UserOnProject.delete({ projectId: id, userId });
+      await UserOnProject.delete({ projectId: id, userId: userToAdd.id });
 
-      const participationOnProject = createUserOnProject(
-        userId,
+      participationOnProject = createUserOnProject(
+        userToAdd.id,
         id,
         realCapabilities!,
         rolePresetId
@@ -80,20 +128,27 @@ export class UserManagementResolver {
       await transactionalEntityManager.save(participationOnProject);
     });
 
-    return true;
+    return participationOnProject;
   }
 
-  @Query(() => [User])
+  @Query(() => [UserOnProject])
   @UseMiddleware(isAuth)
   async usersOnProject(
     @Ctx() { req }: AppContext,
     @Arg("id", () => Int) id: number
   ): Promise<UserOnProject[]> {
-    verifyPermissionOnProject(id, req.session.userId, "canManageProjectUsers");
+    await verifyPermissionOnProject(
+      id,
+      req.session.userId,
+      "canManageProjectUsers"
+    );
 
     return await UserOnProject.find({
       where: {
         projectId: id,
+      },
+      order: {
+        createdAt: "DESC",
       },
     });
   }
@@ -105,7 +160,11 @@ export class UserManagementResolver {
     @Arg("id", () => Int) id: number,
     @Arg("userId", () => Int) userId: number
   ): Promise<boolean> {
-    verifyPermissionOnProject(id, req.session.userId, "canManageProjectUsers");
+    await verifyPermissionOnProject(
+      id,
+      req.session.userId,
+      "canManageProjectUsers"
+    );
 
     await UserOnProject.delete({ projectId: id, userId });
     return true;

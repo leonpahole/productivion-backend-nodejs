@@ -21,6 +21,9 @@ class CreateTaskInput {
 
   @Field({ nullable: true })
   description?: string;
+
+  @Field({ nullable: true })
+  dueDate?: Date;
 }
 
 @Resolver()
@@ -30,16 +33,21 @@ export class TaskResolver {
   async createTask(
     @Ctx() { req }: AppContext,
     @Arg("projectId", () => Int) projectId: number,
-    @Arg("input") { title, description }: CreateTaskInput,
+    @Arg("input") { title, description, dueDate }: CreateTaskInput,
     @Arg("parentTaskId", () => Int, { nullable: true }) parentTaskId?: number
   ): Promise<Task> {
-    verifyPermissionOnProject(projectId, req.session.userId, "canAddTask");
+    await verifyPermissionOnProject(
+      projectId,
+      req.session.userId,
+      "canAddTask"
+    );
     const task = new Task();
     task.title = title;
     task.description = description;
     task.parentTaskId = parentTaskId;
     task.authorId = req.session.userId;
     task.projectId = projectId;
+    task.dueDate = dueDate;
 
     await task.save();
     return task;
@@ -50,41 +58,51 @@ export class TaskResolver {
   async tasks(
     @Ctx() { req }: AppContext,
     @Arg("projectId", () => Int) projectId: number,
-    @Arg("parentTaskId", () => Int, { nullable: true }) parentTaskId?: number
+    @Arg("parentTaskId", () => Int, { nullable: true })
+    parentTaskId: number | null = null
   ): Promise<Task[]> {
-    verifyPermissionOnProject(projectId, req.session.userId, "view");
-    return Task.find({ where: { projectId, parentTaskId } });
+    await verifyPermissionOnProject(projectId, req.session.userId, "view");
+    console.log(parentTaskId);
+    return Task.find({
+      where: { projectId, parentTaskId },
+      order: { createdAt: "DESC" },
+    });
   }
 
-  @Query(() => [Task])
+  @Query(() => Task, { nullable: true })
   @UseMiddleware(isAuth)
   async task(
     @Arg("projectId", () => Int) projectId: number,
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: AppContext
   ): Promise<Task | undefined> {
-    verifyPermissionOnProject(projectId, req.session.userId, "view");
+    await verifyPermissionOnProject(projectId, req.session.userId, "view");
     return Task.findOne({ where: { id, projectId } });
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => Task, { nullable: true })
   @UseMiddleware(isAuth)
   async updateTask(
     @Ctx() { req }: AppContext,
     @Arg("projectId", () => Int) projectId: number,
     @Arg("id", () => Int) id: number,
-    @Arg("input") { title, description }: CreateTaskInput
-  ): Promise<boolean> {
-    verifyPermissionOnProject(projectId, req.session.userId, "canUpdateTask");
+    @Arg("input") { title, description, dueDate }: CreateTaskInput
+  ): Promise<Task | undefined> {
+    await verifyPermissionOnProject(
+      projectId,
+      req.session.userId,
+      "canUpdateTask"
+    );
     await Task.update(
       { id, projectId },
       {
         title,
         description,
+        dueDate,
       }
     );
 
-    return true;
+    return Task.findOne({ where: { id, projectId } });
   }
 
   @Mutation(() => Boolean)
@@ -94,7 +112,11 @@ export class TaskResolver {
     @Arg("id", () => Int) id: number,
     @Ctx() { req }: AppContext
   ): Promise<boolean> {
-    verifyPermissionOnProject(projectId, req.session.userId, "canDeleteTask");
+    await verifyPermissionOnProject(
+      projectId,
+      req.session.userId,
+      "canDeleteTask"
+    );
     await Task.delete({
       id,
       projectId,
@@ -102,15 +124,19 @@ export class TaskResolver {
     return true;
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => Task, { nullable: true })
   @UseMiddleware(isAuth)
   async completeTask(
     @Arg("projectId", () => Int) projectId: number,
     @Arg("id", () => Int) id: number,
     @Arg("isCompleted") isCompleted: boolean,
     @Ctx() { req }: AppContext
-  ): Promise<boolean> {
-    verifyPermissionOnProject(projectId, req.session.userId, "canCompleteTask");
+  ): Promise<Task | undefined> {
+    await verifyPermissionOnProject(
+      projectId,
+      req.session.userId,
+      "canCompleteTask"
+    );
     await Task.update(
       {
         id,
@@ -120,6 +146,7 @@ export class TaskResolver {
         completed: isCompleted,
       }
     );
-    return true;
+
+    return Task.findOne(id);
   }
 }

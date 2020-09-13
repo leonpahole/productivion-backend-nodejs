@@ -1,5 +1,5 @@
 import argon2 from "argon2";
-import { IsEmail, Length, MinLength } from "class-validator";
+import { IsEmail, Length, MinLength, MaxLength } from "class-validator";
 import {
   Arg,
   Ctx,
@@ -21,6 +21,7 @@ import { createGraphQLInputError } from "../utils/createGraphQLInputError";
 class RegisterInput {
   @Field()
   @IsEmail()
+  @MaxLength(250)
   email: string;
 
   @Field()
@@ -28,7 +29,7 @@ class RegisterInput {
   name: string;
 
   @Field()
-  @MinLength(4)
+  @Length(4, 250)
   password: string;
 }
 
@@ -118,12 +119,12 @@ export class UserResolver {
     return User.findOne(req.session.userId);
   }
 
-  @Mutation(() => Boolean)
+  @Mutation(() => User, { nullable: true })
   @UseMiddleware(isAuth)
   async updateUser(
     @Ctx() { req }: AppContext,
     @Arg("input") { name }: UpdateUserInput
-  ): Promise<boolean> {
+  ): Promise<User | undefined> {
     await User.update(
       { id: req.session.userId },
       {
@@ -131,7 +132,7 @@ export class UserResolver {
       }
     );
 
-    return true;
+    return User.findOne({ where: { id: req.session.userId } });
   }
 
   @Mutation(() => Boolean)
