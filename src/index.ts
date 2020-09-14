@@ -1,7 +1,7 @@
 import "reflect-metadata";
 
 if (process.env.NODE_ENV !== "production") {
-  require("dotenv-safe").load();
+  require("dotenv-safe").config();
 }
 
 import { connectToDatabase } from "./boot/connectToDatabase";
