@@ -4,7 +4,9 @@ import Redis from "ioredis";
 
 export const setUpSessionRedis = () => {
   const RedisStore = connectRedis(session);
-  const redis = new Redis(process.env.REDIS_URL);
+  const redis = new Redis({
+    host: process.env.REDIS_HOST,
+  });
 
   return { RedisStore, redis };
 };

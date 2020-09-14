@@ -1,5 +1,8 @@
 import "reflect-metadata";
-import "dotenv-safe/config";
+
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv-safe").load();
+}
 
 import { connectToDatabase } from "./boot/connectToDatabase";
 import { configureExpress } from "./boot/configureExpress";

@@ -8,5 +8,7 @@ declare namespace NodeJS {
     COOKIE_DOMAIN: string;
     PORT: string;
     SESSION_SECRET: string;
+    REDIS_HOST: string;
+    NODE_ENV: string;
   }
 }

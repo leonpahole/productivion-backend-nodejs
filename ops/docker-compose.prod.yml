@@ -2,50 +2,79 @@ version: "3.6"
 
 services:
   app:
-    container_name: todo_app_db
-    image: postgres:12.4
+    container_name: productivion_backend
+    image: leonpahole/productivion-backend-nodejs:${API_VERSION}
+    networks:
+      - backend
+      - traefik-global-proxy
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres:/data/postgres
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CORS_ORIGIN: ${CORS_ORIGIN}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      PORT: 4000
+      SESSION_SECRET: ${SESSION_SECRET}
+      REDIS_HOST: redis
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.productivion-backend.rule=Host(`${API_DOMAIN}`)"
+      - "traefik.http.routers.productivion-backend.entrypoints=websecure"
+      - "traefik.http.routers.productivion-backend.tls.certresolver=letsencrypt"
 
   db:
-    container_name: todo_app_db
-    image: postgres:12.4
-    ports:
-      - 5432:5432
+    container_name: productivion_db
+    image: postgres:${DB_VERSION}
+    networks:
+      - database
+      - backend
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres:/data/postgres
+    restart: always
 
   db_admin:
-    container_name: todo_app_db_admin
+    container_name: productivion_db_admin
     image: dpage/pgadmin4:latest
+    networks:
+      - database
+      - traefik-global-proxy
     environment:
-      PGADMIN_DEFAULT_EMAIL: e@e.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: ${DB_ADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${DB_ADMIN_PASSWORD}
     volumes:
       - pgadmin:/root/.pgadmin
-    ports:
-      - "8080:80"
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.productivion-dbadmin.rule=Host(`${DB_ADMIN_DOMAIN}`)"
+      - "traefik.http.routers.productivion-dbadmin.entrypoints=websecure"
+      - "traefik.http.routers.productivion-dbadmin.tls.certresolver=letsencrypt"
 
   redis:
-    container_name: todo_app_session_redis
-    image: "docker.io/bitnami/redis:6.0-debian-10"
+    container_name: productivion_redis
+    image: "docker.io/bitnami/redis:${REDIS_VERSION}"
+    networks:
+      - backend
     environment:
       - ALLOW_EMPTY_PASSWORD=yes
       - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
-    ports:
-      - "6379:6379"
     volumes:
       - "redis_data:/bitnami/redis/data"
+    restart: always
 
 volumes:
   postgres:
   pgadmin:
   redis_data:
+
+networks:
+  database:
+  backend:
+  traefik-global-proxy:
+    external: true
