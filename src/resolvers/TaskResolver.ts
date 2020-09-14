@@ -35,7 +35,7 @@ export class TaskResolver {
     @Arg("projectId", () => Int) projectId: number,
     @Arg("input") { title, description, dueDate }: CreateTaskInput,
     @Arg("parentTaskId", () => Int, { nullable: true }) parentTaskId?: number
-  ): Promise<Task> {
+  ): Promise<Task | undefined> {
     await verifyPermissionOnProject(
       projectId,
       req.session.userId,
@@ -50,7 +50,8 @@ export class TaskResolver {
     task.dueDate = dueDate;
 
     await task.save();
-    return task;
+
+    return Task.findOne({ where: { id: task.id } });
   }
 
   @Query(() => [Task])
