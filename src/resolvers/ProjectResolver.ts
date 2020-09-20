@@ -23,6 +23,7 @@ import {
 } from "../types/UserProjectCapabilities";
 import { AUTH_ERROR } from "../constants";
 import { Length } from "class-validator";
+import { Task } from "../entities/Task";
 
 @InputType()
 class CreateProjectInput {
@@ -46,6 +47,16 @@ export class ProjectResolver {
       userId: req.session.userId,
       projectId: project.id,
     });
+  }
+
+  @FieldResolver(() => Int, { nullable: false })
+  async taskCount(@Root() project: Project): Promise<number> {
+    return Task.count({ where: { projectId: project.id } });
+  }
+
+  @FieldResolver(() => Int, { nullable: false })
+  async userCount(@Root() project: Project): Promise<number> {
+    return UserOnProject.count({ where: { projectId: project.id } });
   }
 
   @Mutation(() => Project, { nullable: true })

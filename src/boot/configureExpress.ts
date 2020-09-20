@@ -14,7 +14,7 @@ export const configureExpress = async (
 
   app.use(
     cors({
-      origin: process.env.CORS_ORIGIN,
+      origin: process.env.FRONTEND_URL,
       credentials: true,
     })
   );
@@ -29,7 +29,7 @@ export const configureExpress = async (
         disableTouch: true,
       }),
       cookie: {
-        maxAge: 1000 * 60 * 60 * 24 * 365 * 10,
+        maxAge: 1000 * 60 * 60 * 24 * 365 * 20,
         httpOnly: true,
         sameSite: "lax",
         secure: __prod__,

@@ -29,6 +29,9 @@ export class User extends BaseEntity {
   @Column()
   password: string;
 
+  @Column({ default: false })
+  isVerified: boolean;
+
   @OneToMany(() => Project, (project) => project.author)
   projectsAuthored: Project[];
 

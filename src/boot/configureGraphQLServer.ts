@@ -4,13 +4,18 @@ import { UserResolver } from "../resolvers/UserResolver";
 import IORedis from "ioredis";
 import { Express } from "express";
 import { AppError, InputError } from "../types/AppError";
-import { AUTH_ERROR, ARGUMENT_VALIDATION_ERROR } from "../constants";
+import {
+  AUTH_ERROR,
+  ARGUMENT_VALIDATION_ERROR,
+  USER_UNVERIFIED_ERROR,
+} from "../constants";
 import { logger } from "../logger";
 import { ProjectResolver } from "../resolvers/ProjectResolver";
 import { TaskResolver } from "../resolvers/TaskResolver";
 import { UserManagementResolver } from "../resolvers/UserManagementResolver";
 import { createUserLoader } from "../utils/createUserLoader";
 import { createCapabilityLoader } from "../utils/createCapabilityLoader";
+import { CommentResolver } from "../resolvers/CommentResolver";
 
 export const configureGraphQLServer = async (
   app: Express,
@@ -23,6 +28,7 @@ export const configureGraphQLServer = async (
         ProjectResolver,
         TaskResolver,
         UserManagementResolver,
+        CommentResolver,
       ],
       dateScalarMode: "timestamp",
       validate: true,
@@ -58,6 +64,11 @@ export const configureGraphQLServer = async (
         return {
           message: err.message,
           type: "auth-error",
+        };
+      } else if (err.message.includes(USER_UNVERIFIED_ERROR)) {
+        return {
+          message: err.message,
+          type: "unverified-error",
         };
       }
 

@@ -8,6 +8,7 @@ import {
   Query,
   Resolver,
   UseMiddleware,
+  ObjectType,
 } from "type-graphql";
 import { Task } from "../entities/Task";
 import { isAuth } from "../middleware/isAuth";
@@ -24,6 +25,15 @@ class CreateTaskInput {
 
   @Field({ nullable: true })
   dueDate?: Date;
+}
+
+@ObjectType()
+class TasksPaginatedResponse {
+  @Field(() => [Task])
+  tasks: Task[];
+
+  @Field()
+  hasMore: boolean;
 }
 
 @Resolver()
@@ -54,20 +64,31 @@ export class TaskResolver {
     return Task.findOne({ where: { id: task.id } });
   }
 
-  @Query(() => [Task])
+  @Query(() => TasksPaginatedResponse)
   @UseMiddleware(isAuth)
   async tasks(
     @Ctx() { req }: AppContext,
     @Arg("projectId", () => Int) projectId: number,
+    @Arg("offset", () => Int) offset: number,
+    @Arg("limit", () => Int) limit: number,
     @Arg("parentTaskId", () => Int, { nullable: true })
     parentTaskId: number | null = null
-  ): Promise<Task[]> {
+  ): Promise<TasksPaginatedResponse> {
+    const realLimit = Math.min(50, limit);
+    const realLimitPlusOne = realLimit + 1;
+
     await verifyPermissionOnProject(projectId, req.session.userId, "view");
-    console.log(parentTaskId);
-    return Task.find({
+    const tasks = await Task.find({
       where: { projectId, parentTaskId },
       order: { createdAt: "DESC" },
+      skip: offset,
+      take: realLimitPlusOne,
     });
+
+    return {
+      tasks: tasks.slice(0, realLimit),
+      hasMore: tasks.length === realLimitPlusOne,
+    };
   }
 
   @Query(() => Task, { nullable: true })

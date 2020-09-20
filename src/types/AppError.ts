@@ -1,4 +1,8 @@
-export type AppErrorType = "validation-error" | "auth-error" | "system-error";
+export type AppErrorType =
+  | "validation-error"
+  | "auth-error"
+  | "system-error"
+  | "unverified-error";
 
 export interface AppError {
   type: AppErrorType;

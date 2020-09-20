@@ -1,5 +1,6 @@
 import { InputType, Field, ObjectType } from "type-graphql";
 
+// ADD CAPABILITY
 @InputType("UserProjectCapabilitiesInput")
 @ObjectType("UserProjectCapabilitiesType")
 export class UserProjectCapabilities {
@@ -23,10 +24,20 @@ export class UserProjectCapabilities {
 
   @Field()
   canManageProjectUsers: boolean;
+
+  @Field()
+  canComment: boolean;
+
+  @Field()
+  canUpdateOtherComments: boolean;
+
+  @Field()
+  canDeleteOtherComments: boolean;
 }
 
 export type Role = "ADMIN" | "PROJECT_MANAGER" | "DEVELOPER" | "VIEWER";
 
+// ADD CAPABILITY
 export type CapabilityId =
   | "canUpdateProject"
   | "canDeleteProject"
@@ -35,13 +46,17 @@ export type CapabilityId =
   | "canDeleteTask"
   | "canCompleteTask"
   | "view"
-  | "canManageProjectUsers";
+  | "canManageProjectUsers"
+  | "canComment"
+  | "canUpdateOtherComments"
+  | "canDeleteOtherComments";
 
 export interface ProjectCapability {
   id: number;
   capabilities: UserProjectCapabilities;
 }
 
+// ADD CAPABILITY
 export const RolePreset: Record<Role, ProjectCapability> = {
   ADMIN: {
     id: 1,
@@ -53,6 +68,9 @@ export const RolePreset: Record<Role, ProjectCapability> = {
       canDeleteTask: true,
       canCompleteTask: true,
       canManageProjectUsers: true,
+      canComment: true,
+      canUpdateOtherComments: true,
+      canDeleteOtherComments: true,
     },
   },
   PROJECT_MANAGER: {
@@ -65,6 +83,9 @@ export const RolePreset: Record<Role, ProjectCapability> = {
       canDeleteTask: true,
       canCompleteTask: true,
       canManageProjectUsers: false,
+      canComment: true,
+      canUpdateOtherComments: false,
+      canDeleteOtherComments: false,
     },
   },
   DEVELOPER: {
@@ -77,6 +98,9 @@ export const RolePreset: Record<Role, ProjectCapability> = {
       canDeleteTask: false,
       canCompleteTask: true,
       canManageProjectUsers: false,
+      canComment: true,
+      canUpdateOtherComments: false,
+      canDeleteOtherComments: false,
     },
   },
   VIEWER: {
@@ -89,6 +113,9 @@ export const RolePreset: Record<Role, ProjectCapability> = {
       canDeleteTask: false,
       canCompleteTask: false,
       canManageProjectUsers: false,
+      canComment: false,
+      canUpdateOtherComments: false,
+      canDeleteOtherComments: false,
     },
   },
 };

@@ -10,12 +10,21 @@ import {
   Resolver,
   UseMiddleware,
 } from "type-graphql";
-import { AUTH_ERROR, COOKIE_NAME, PG_UNIQUE_ERROR_CODE } from "../constants";
+import {
+  AUTH_ERROR,
+  COOKIE_NAME,
+  PG_UNIQUE_ERROR_CODE,
+  FORGOT_PASSWORD_LINK_EXPIRY_MS,
+  FORGOT_PASSWORD_LINK_EXPIRY_HOURS,
+  USER_UNVERIFIED_ERROR,
+} from "../constants";
 import { User } from "../entities/User";
 import { logger } from "../logger";
 import { isAuth } from "../middleware/isAuth";
 import { AppContext } from "../types/AppContext";
 import { createGraphQLInputError } from "../utils/createGraphQLInputError";
+import { sendForgotPasswordMail, sendWelcomeMail } from "../utils/sendEmail";
+import jwt from "jsonwebtoken";
 
 @InputType()
 class RegisterInput {
@@ -34,6 +43,12 @@ class RegisterInput {
 }
 
 @InputType()
+class VerifyEmailInput {
+  @Field()
+  token: string;
+}
+
+@InputType()
 class LoginInput {
   @Field()
   @IsEmail()
@@ -42,6 +57,9 @@ class LoginInput {
   @Field()
   @MinLength(4)
   password: string;
+
+  @Field()
+  rememberMe: boolean;
 }
 
 @InputType()
@@ -58,11 +76,20 @@ class ChangePasswordInput {
   password: string;
 }
 
+@InputType()
+class ResetPasswordInput {
+  @Field()
+  @MinLength(4)
+  password: string;
+
+  @Field()
+  token: string;
+}
+
 @Resolver()
 export class UserResolver {
   @Mutation(() => User)
   async register(
-    @Ctx() { req }: AppContext,
     @Arg("input") { email, name, password }: RegisterInput
   ): Promise<User> {
     const hashedPassword = await argon2.hash(password);
@@ -70,6 +97,7 @@ export class UserResolver {
     user.email = email;
     user.name = name;
     user.password = hashedPassword;
+    user.isVerified = false;
 
     try {
       await user.save();
@@ -88,7 +116,52 @@ export class UserResolver {
       throw e;
     }
 
-    req.session.userId = user.id;
+    const token = jwt.sign(
+      {
+        id: user.id,
+      },
+      process.env.JWT_SECRET
+    );
+
+    const sendMailResult = await sendWelcomeMail(user.email, {
+      link: `${process.env.FRONTEND_URL}/verify-email/${token}`,
+      name: user.name,
+    });
+
+    if (!sendMailResult) {
+      logger.error("Revering insert of user");
+      await User.delete({ id: user.id });
+      throw new Error();
+    }
+
+    return user;
+  }
+
+  @Mutation(() => User, { nullable: true })
+  async verifyEmail(@Arg("input") { token }: VerifyEmailInput): Promise<User> {
+    let payload: any | null = null;
+
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      logger.error("Verify token error");
+      logger.error(e);
+      throw new Error(AUTH_ERROR);
+    }
+
+    if (!payload || !payload.id) {
+      throw new Error(AUTH_ERROR);
+    }
+
+    const userId: number = payload.id;
+
+    const user = await User.findOne(userId);
+
+    if (!user || user.isVerified) {
+      throw new Error(AUTH_ERROR);
+    }
+
+    await User.update({ id: userId }, { isVerified: true });
 
     return user;
   }
@@ -96,7 +169,7 @@ export class UserResolver {
   @Mutation(() => User)
   async login(
     @Ctx() { req }: AppContext,
-    @Arg("input") { email, password }: LoginInput
+    @Arg("input") { email, password, rememberMe }: LoginInput
   ): Promise<User> {
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -108,7 +181,15 @@ export class UserResolver {
       throw new Error(AUTH_ERROR);
     }
 
+    if (!user.isVerified) {
+      throw new Error(USER_UNVERIFIED_ERROR);
+    }
+
     req.session.userId = user.id;
+
+    if (!rememberMe) {
+      req.session.cookie.expires = false;
+    }
 
     return user;
   }
@@ -173,5 +254,65 @@ export class UserResolver {
         resolve(true);
       })
     );
+  }
+
+  @Mutation(() => Boolean)
+  async forgotPassword(@Arg("email") email: string) {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      return true;
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: FORGOT_PASSWORD_LINK_EXPIRY_MS,
+      }
+    );
+
+    const sendMailResult = await sendForgotPasswordMail(user.email, {
+      expiryTimeHours: FORGOT_PASSWORD_LINK_EXPIRY_HOURS,
+      link: `${process.env.FRONTEND_URL}/reset-password/${token}`,
+      name: user.name,
+    });
+
+    return sendMailResult;
+  }
+
+  @Mutation(() => Boolean)
+  async resetPassword(
+    @Arg("input") { token, password }: ResetPasswordInput
+  ): Promise<Boolean> {
+    let payload: any | null = null;
+
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      logger.error("Verify token error");
+      logger.error(e);
+      throw new Error(AUTH_ERROR);
+    }
+
+    if (!payload || !payload.id) {
+      throw new Error(AUTH_ERROR);
+    }
+
+    const userId: number = payload.id;
+
+    const user = await User.findOne(userId);
+
+    if (!user) {
+      throw new Error(AUTH_ERROR);
+    }
+
+    await User.update(
+      { id: userId },
+      { password: await argon2.hash(password) }
+    );
+
+    return true;
   }
 }

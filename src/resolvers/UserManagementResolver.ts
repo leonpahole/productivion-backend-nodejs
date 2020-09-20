@@ -49,6 +49,17 @@ export class UserManagementResolver {
     return userLoader.load(userOnProject.userId);
   }
 
+  @FieldResolver(() => UserProjectCapabilities)
+  capabilities(
+    @Root() userOnProject: UserOnProject,
+    @Ctx() { req, capabilityLoader }: AppContext
+  ) {
+    return capabilityLoader.load({
+      userId: req.session.userId,
+      projectId: userOnProject.projectId,
+    });
+  }
+
   @Mutation(() => UserOnProject, { nullable: true })
   @UseMiddleware(isAuth)
   async addUserToProject(
