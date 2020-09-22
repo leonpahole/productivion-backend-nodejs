@@ -38,6 +38,7 @@ COPY yarn.lock ./
 
 RUN yarn
 
+COPY emails emails/
 COPY --from=builder /usr/src/app/dist/ dist/
 
 EXPOSE 4000

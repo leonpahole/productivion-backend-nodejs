@@ -11,10 +11,8 @@ declare namespace NodeJS {
     SESSION_SECRET: string;
     REDIS_HOST: string;
     NODE_ENV: string;
-    : string;
     MAILGUN_DOMAIN: string;
     MAILGUN_API_KEY: string;
-    : string;
     MAIL_FROM: string;
   }
 }

@@ -36,8 +36,8 @@ export class Comment extends BaseEntity {
   @ManyToOne(() => Task, { nullable: true })
   task?: Task;
 
-  @Column({ nullable: true })
-  projectId?: number;
+  @Column()
+  projectId: number;
 
   @ManyToOne(() => Project, { nullable: true })
   project?: Project;

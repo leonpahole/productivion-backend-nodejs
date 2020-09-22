@@ -74,10 +74,11 @@ export class TaskResolver {
     @Arg("parentTaskId", () => Int, { nullable: true })
     parentTaskId: number | null = null
   ): Promise<TasksPaginatedResponse> {
+    await verifyPermissionOnProject(projectId, req.session.userId, "view");
+
     const realLimit = Math.min(50, limit);
     const realLimitPlusOne = realLimit + 1;
 
-    await verifyPermissionOnProject(projectId, req.session.userId, "view");
     const tasks = await Task.find({
       where: { projectId, parentTaskId },
       order: { createdAt: "DESC" },

@@ -17,6 +17,11 @@ services:
       PORT: 4000
       SESSION_SECRET: ${SESSION_SECRET}
       REDIS_HOST: redis
+      FRONTEND_URL: ${FRONTEND_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      MAILGUN_DOMAIN: ${MAILGUN_DOMAIN}
+      MAILGUN_API_KEY: ${MAILGUN_API_KEY}
+      MAIL_FROM: ${MAIL_FROM}
     restart: always
     labels:
       - "traefik.enable=true"

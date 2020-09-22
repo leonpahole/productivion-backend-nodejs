@@ -10,6 +10,7 @@ import {
   UseMiddleware,
   FieldResolver,
   Root,
+  ObjectType,
 } from "type-graphql";
 import { isAuth } from "../middleware/isAuth";
 import { AppContext } from "../types/AppContext";
@@ -21,6 +22,15 @@ import { User } from "../entities/User";
 class CreateCommentInput {
   @Field()
   content: string;
+}
+
+@ObjectType()
+class CommentsPaginatedResponse {
+  @Field(() => [Comment])
+  comments: Comment[];
+
+  @Field()
+  hasMore: boolean;
 }
 
 @Resolver(Comment)
@@ -49,10 +59,9 @@ export class CommentResolver {
     const comment = new Comment();
     comment.content = content;
     comment.authorId = req.session.userId;
+    comment.projectId = projectId;
     if (taskId) {
       comment.taskId = taskId;
-    } else {
-      comment.projectId = projectId;
     }
 
     await comment.save();
@@ -60,18 +69,32 @@ export class CommentResolver {
     return Comment.findOne({ where: { id: comment.id } });
   }
 
-  @Query(() => [Comment])
+  @UseMiddleware(isAuth)
+  @Query(() => CommentsPaginatedResponse)
   @UseMiddleware(isAuth)
   async comments(
     @Ctx() { req }: AppContext,
     @Arg("projectId", () => Int) projectId: number,
+    @Arg("offset", () => Int) offset: number,
+    @Arg("limit", () => Int) limit: number,
     @Arg("taskId", () => Int, { nullable: true }) taskId?: number
-  ): Promise<Comment[]> {
+  ): Promise<CommentsPaginatedResponse> {
     await verifyPermissionOnProject(projectId, req.session.userId, "view");
-    return await Comment.find({
+
+    const realLimit = Math.min(50, limit);
+    const realLimitPlusOne = realLimit + 1;
+
+    const comments = await Comment.find({
       where: { projectId, taskId: taskId ? taskId : null },
       order: { createdAt: "DESC" },
+      skip: offset,
+      take: realLimitPlusOne,
     });
+
+    return {
+      comments: comments.slice(0, realLimit),
+      hasMore: comments.length === realLimitPlusOne,
+    };
   }
 
   @Mutation(() => Comment, { nullable: true })
@@ -79,7 +102,6 @@ export class CommentResolver {
   async updateComment(
     @Ctx() { req }: AppContext,
     @Arg("id", () => Int) id: number,
-    @Arg("projectId", () => Int) projectId: number,
     @Arg("input") { content }: CreateCommentInput
   ): Promise<Comment | undefined> {
     const comment = await Comment.findOne({ where: { id } });
@@ -89,7 +111,7 @@ export class CommentResolver {
 
     if (comment.authorId !== req.session.userId) {
       await verifyPermissionOnProject(
-        projectId,
+        comment.projectId,
         req.session.userId,
         "canUpdateOtherComments"
       );
