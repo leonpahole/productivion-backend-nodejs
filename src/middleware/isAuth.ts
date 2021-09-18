@@ -7,7 +7,5 @@ export const isAuth: MiddlewareFn<AppContext> = ({ context, args }, next) => {
     throw new Error(AUTH_ERROR);
   }
 
-  console.log(args);
-
   return next();
 };
